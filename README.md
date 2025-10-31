@@ -1,2 +1,2 @@
 # napcat-qq-jmcomic
-基于NapCat之类的NTQQ框架，通过OneBot协议约定，调用jmcomic提供的Python API访问禁漫天堂，实现会发送禁漫天堂本子的QQ机器人
+基于NapCat之类的NTQQ框架，通过OneBot协议约定，调用jmcomic提供的Python API访问禁漫天堂，实现一个会发送禁漫天堂本子的QQ机器人
