@@ -11,7 +11,6 @@ import psutil
 import multiprocessing
 import time
 from datetime import datetime
-import logging
 
 app = FastAPI()
 admin_id = 123456  # 管理者QQ号
@@ -108,8 +107,6 @@ class NapcatWebSocketBot:
             return False
 
 # ====================== 全局状态管理 ======================
-logging.getLogger("jmcomic").setLevel(logging.ERROR)
-logging.getLogger("JmModuleConfig").setLevel(logging.ERROR) # 设置日志等级为 ERROR
 bot = NapcatWebSocketBot(WEBSOCKET_URL)
 client = jmcomic.JmOption.default().new_jm_client()
 max_episodes = 20
@@ -372,4 +369,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
 
         log("[🛑 SYSTEM]", "用户手动终止程序")
+
 
