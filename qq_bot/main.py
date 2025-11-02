@@ -16,8 +16,8 @@ import logging
 app = FastAPI()
 admin_id = 123456  # 管理者QQ号
 
-HTTP_PORT = 8081
-WEBSOCKET_URL = "ws://127.0.0.1:3001"
+HTTP_PORT = 8081  # HTTP客户端端口
+WEBSOCKET_URL = "ws://127.0.0.1:3001"  # Websocket服务器地址
 FILE_DIR = "./pdf/"
 
 # ========== 工具函数 ==========
@@ -372,3 +372,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
 
         log("[🛑 SYSTEM]", "用户手动终止程序")
+
