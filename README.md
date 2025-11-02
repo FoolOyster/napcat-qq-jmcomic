@@ -3,10 +3,13 @@
 
 ---
 ## 如何配置
-在Napcat中登录作为发送禁漫本子机器人的QQ，在然后Napcat中设置好网络配置并开启：HTTP客户端和Websocket服务器，用于接收消息和发送消息和文件。
-记录好上述网络配置的端口，在main.py文件里调好对应端口。
-main.py文件里的admin_id设置成能管控机器人的QQ号（管理者）。
-option.yml文件里的配置可以参考 [JM配置文件指南](https://jmcomic.readthedocs.io/zh-cn/latest/option_file_syntax/#2-option
+### 开始之前
+- 自行确保python安装库：jmcomic，img2pdf，websockets，uvicorn，fastapi，psutil
+### 配置工作
+- 在Napcat中登录作为发送禁漫本子机器人的QQ，在然后Napcat中设置好网络配置并开启：HTTP客户端和Websocket服务器，用于接收消息和发送消息和文件。
+- 记录好上述网络配置的端口，在main.py文件里调好对应端口。
+- main.py文件里的admin_id设置成能管控机器人的QQ号（管理者）。
+- option.yml文件里的配置可以参考 [JM配置文件指南](https://jmcomic.readthedocs.io/zh-cn/latest/option_file_syntax/#2-option
 )按自己喜好配置。
 
 ---
