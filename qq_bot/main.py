@@ -157,7 +157,6 @@ def jm_download(number):
     while p.is_alive():
         #time.sleep(2)
         mem = process.memory_info().rss / 1024 / 1024
-        log("[📊 SYSTEM]", f"当前内存: {mem:.2f} MB")
         if time.time() - start_time > timeout:
             log("[⚠️ JM]", "下载超时，终止进程")
             p.terminate()
@@ -224,8 +223,10 @@ async def process_jm_command(number, message_type, group_id, user_id):
 
 async def look_jm_information(number):
     try:
+        log("[⭕ JM]", f"正在检索本子{number}信息")
         page = client.search_site(search_query=str(number))
         album = page.single_album
+        log("[🟢 JM]", f"本子{number}信息检索成功")
         return (
             f"🆔ID：{number}\n"
             f"⭕标题：{album.title}\n"
@@ -236,6 +237,7 @@ async def look_jm_information(number):
             f"👁浏览：{album.views}"
         )
     except Exception:
+        log("[❌ JM]", f"本子{number}信息检索失败（可能ID错误或网络问题）")
         return "❌ 查询失败（可能ID错误或网络问题）"
 
 
@@ -367,7 +369,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-
         log("[🛑 SYSTEM]", "用户手动终止程序")
 
 
