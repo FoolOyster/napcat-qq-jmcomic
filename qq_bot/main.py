@@ -11,19 +11,47 @@ import psutil
 import multiprocessing
 import time
 from datetime import datetime
+import logging
+from logging.handlers import TimedRotatingFileHandler
 
+# ====================== 基础配置 ======================
 app = FastAPI()
 admin_id = 123456  # 管理者QQ号
 
 HTTP_PORT = 8081  # HTTP客户端端口
 WEBSOCKET_URL = "ws://127.0.0.1:3001"  # Websocket服务器地址
 FILE_DIR = "./pdf/"
+LOG_DIR = "./logs"
 
-# ========== 工具函数 ==========
-def log(tag: str, msg: str):
-    """统一日志格式：带时间 + 分类标签"""
-    t = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{t}] {tag} {msg}",flush=True)
+# ====================== 日志系统配置 ======================
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "jm_bot.log")
+
+# 每4小时切换日志文件，保留14个（大约两天）
+file_handler = TimedRotatingFileHandler(LOG_FILE, when="h", interval=4, backupCount=14, encoding="utf-8")
+file_handler.suffix = "%Y-%m-%d_%H-%M.log"
+
+log_formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
+file_handler.setFormatter(log_formatter)
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(log_formatter)
+
+logger = logging.getLogger("JM_BOT")
+logger.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+# ====================== 工具函数 ======================
+def log(tag: str, msg: str, level="info"):
+    """统一日志格式：写入控制台 + 文件"""
+    full_msg = f"{tag} {msg}"
+    if level == "error":
+        logger.error(full_msg)
+    elif level == "warning":
+        logger.warning(full_msg)
+    else:
+        logger.info(full_msg)
 
 # ================ 信息发送类 ================
 class NapcatWebSocketBot:
@@ -156,7 +184,6 @@ def jm_download(number):
 
     while p.is_alive():
         #time.sleep(2)
-        mem = process.memory_info().rss / 1024 / 1024
         if time.time() - start_time > timeout:
             log("[⚠️ JM]", "下载超时，终止进程")
             p.terminate()
@@ -370,5 +397,6 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         log("[🛑 SYSTEM]", "用户手动终止程序")
+
 
 
