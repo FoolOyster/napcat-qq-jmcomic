@@ -49,7 +49,7 @@ napcat-qq-jmcomic/
 - **依赖库**：
 
 ```bash
-pip install fastapi uvicorn websockets jmcomic psutil
+pip install fastapi uvicorn websockets jmcomic psutil img2pdf
 ```
 
 推荐使用虚拟环境：
