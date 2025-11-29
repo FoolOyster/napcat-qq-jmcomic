@@ -1,3 +1,5 @@
+import sys
+
 import websockets
 import json
 import os
@@ -8,6 +10,7 @@ from fastapi import FastAPI, Request
 import gc
 import asyncio
 import psutil
+import yaml
 import multiprocessing
 import time
 from datetime import datetime
@@ -22,6 +25,13 @@ HTTP_PORT = 8081  # HTTP客户端端口
 WEBSOCKET_URL = "ws://127.0.0.1:3001"  # Websocket服务器地址
 FILE_DIR = "./pdf/"
 LOG_DIR = "./logs"
+
+# 读取配置文件
+with open("config.yml", "r", encoding="utf-8") as f:
+    _config = yaml.safe_load(f)
+
+banned_id: list[int] = _config.get("banned_id", [])
+banned_user: list[int] = _config.get("banned_user", [])
 
 # ====================== 日志系统配置 ======================
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -42,6 +52,7 @@ logger.setLevel(logging.INFO)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
+
 # ====================== 工具函数 ======================
 def log(tag: str, msg: str, level="info"):
     """统一日志格式：写入控制台 + 文件"""
@@ -52,6 +63,7 @@ def log(tag: str, msg: str, level="info"):
         logger.warning(full_msg)
     else:
         logger.info(full_msg)
+
 
 def get_total_memory_mb():
     """返回主进程 + 所有子进程的总内存占用（MB）"""
@@ -65,11 +77,12 @@ def get_total_memory_mb():
             pass
     return main_mem / 1024 / 1024, child_mem / 1024 / 1024
 
+
 # ================ 信息发送类 ================
 class NapcatWebSocketBot:
     def __init__(self, websocket_url):
         self.websocket_url = websocket_url
-    
+
     async def send_private_message(self, user_id, message):
         payload = {
             "action": "send_private_msg",
@@ -146,6 +159,7 @@ class NapcatWebSocketBot:
             log("[❌ message_sender]", f"发送群文件失败: {e}")
             return False
 
+
 # ====================== 全局状态管理 ======================
 bot = NapcatWebSocketBot(WEBSOCKET_URL)
 client = jmcomic.JmOption.default().new_jm_client()
@@ -153,19 +167,30 @@ max_episodes = 20
 jm_functioning = True
 jm_is_running = False
 
+
 def get_jm_condition():
     return jm_functioning
+
+
 def set_jm_condition(condition):
     global jm_functioning
     jm_functioning = condition
+
+
 def get_jm_running():
     return jm_is_running
+
+
 def set_jm_running(condition):
     global jm_is_running
     jm_is_running = condition
+
+
 def set_download_max_epiosdes(num):
     global max_episodes
     max_episodes = num
+
+
 def get_download_max_epiosdes():
     return max_episodes
 
@@ -183,6 +208,7 @@ def jm_download_worker(number, result_dict):
         log("[❌ JM]", f"下载失败: {e}")
         result_dict["result"] = False
 
+
 def jm_download(number):
     """在独立进程中执行下载，防止内存污染"""
     manager = multiprocessing.Manager()
@@ -196,7 +222,7 @@ def jm_download(number):
 
     while p.is_alive():
         time.sleep(3)
-        main_mem,child_mem = get_total_memory_mb()
+        main_mem, child_mem = get_total_memory_mb()
         log("[⬇️ DOWNLOADER]", f"下载期间检测内存，主进程内存：{main_mem:.2f} MB ，子进程下载进程内存：{child_mem:.2f} MB")
         if time.time() - start_time > timeout:
             log("[⚠️ JM]", "下载超时，终止进程")
@@ -303,12 +329,37 @@ async def send_message(message_type, group_id, user_id, message):
     elif message_type == "private" and user_id:
         await bot.send_private_message(user_id, message)
 
+
 # ====================== 本子请求者信息 ======================
-def requester_information(message_type, group_name, nickname, group_id, user_id,number,request_type):
+def requester_information(message_type, group_name, nickname, group_id, user_id, number, request_type):
+    msg = ""
+    if number in banned_id or user_id in banned_user:
+        tag = "[🔴 Request]"
+    else:
+        tag = "[🟢 Request]"
     if message_type == 'group':
-        log("[🟢 Request]", f"{group_name}群（{group_id}）中{nickname}（{user_id}）请求{request_type}本子：{number}")
+        msg += f"{group_name}群({group_id})中"
+        if user_id in banned_user:
+            msg += f"被封禁的用户 {nickname}({user_id})"
+        else:
+            msg += f"{nickname}({user_id})"
+        if number in banned_id:
+            msg += f"请求被封禁的{request_type}本子：{number}"
+        else:
+            msg += f"请求本子：{number}"
     elif message_type == 'private':
-        log("[🟢 Request]", f"私聊中{nickname}（{user_id}）请求{request_type}本子：{number}")
+        msg += f"私聊中"
+        if user_id in banned_user:
+            msg += f"被封禁的用户 {nickname}({user_id})"
+        else:
+            msg += f"{nickname}({user_id})"
+        if number in banned_id:
+            msg += f"请求被封禁的{request_type}本子：{number}"
+        else:
+            msg += f"请求本子：{number}"
+
+    log(tag, msg)
+
 
 # ====================== 消息事件处理 ======================
 async def handle_message_event(data):
@@ -348,7 +399,8 @@ async def handle_message_event(data):
     # 下载或查看逻辑
     if get_jm_running() and (match_JM or match_JML):
         number = match_JM.group(1) if match_JM else match_JML.group(1)
-        requester_information(message_type, data.get('group_name'), data.get('sender').get('nickname'), group_id, user_id, number, "处理")
+        requester_information(message_type, data.get('group_name'), data.get('sender').get('nickname'), group_id,
+                              user_id, number, "处理")
         log("[🚫 Request]", f"本子{number}请求驳回，其他本子正在处理中")
         await send_message(message_type, group_id, user_id, "🚫 正在处理其他本子，请稍候")
         return
@@ -356,8 +408,17 @@ async def handle_message_event(data):
     set_jm_running(True)
     if match_JM:
         number = match_JM.group(1)
-        requester_information(message_type, data.get('group_name'), data.get('sender').get('nickname'), group_id, user_id, number, "下载")
+        requester_information(message_type, data.get('group_name'), data.get('sender').get('nickname'), group_id,
+                              user_id, number, "下载")
         if get_jm_condition():
+            if number in banned_id:
+                log("[🚫 Request]", "本子{number}下载请求驳回-banned number")
+                await send_message(message_type, group_id, user_id, "❌ 禁止下载该本子")
+                return
+            elif user_id in banned_user:
+                log("[🚫 Request]", "本子{number}下载请求驳回-banned user")
+                await send_message(message_type, group_id, user_id, "❌ 用户被禁用下载功能")
+                return
             response = await process_jm_command(number, message_type, group_id, user_id)
             await send_message(message_type, group_id, user_id, response)
         else:
@@ -365,7 +426,8 @@ async def handle_message_event(data):
             await send_message(message_type, group_id, user_id, "❌ 禁漫功能未开启")
     elif match_JML:
         number = match_JML.group(1)
-        requester_information(message_type, data.get('group_name'), data.get('sender').get('nickname'), group_id, user_id, number, "检索")
+        requester_information(message_type, data.get('group_name'), data.get('sender').get('nickname'), group_id,
+                              user_id, number, "检索")
         if get_jm_condition():
             await send_message(message_type, group_id, user_id, f"🔍 正在检索本子 {number}")
             info = await look_jm_information(number)
@@ -383,24 +445,25 @@ async def periodic_cleanup():
         await asyncio.sleep(300)
         if hasattr(gc, "collect"):
             gc.collect()
-        main_mem,child_mem = get_total_memory_mb()
-        log("[🚀 SYSTEM]", f"定期检测内存，总内存：{(main_mem+child_mem):.2f} MB ，主进程内存：{main_mem:.2f} MB ，子进程内存：{child_mem:.2f} MB")
+        main_mem, child_mem = get_total_memory_mb()
+        log("[🚀 SYSTEM]",
+            f"定期检测内存，总内存：{(main_mem + child_mem):.2f} MB ，主进程内存：{main_mem:.2f} MB ，子进程内存：{child_mem:.2f} MB")
 
         if get_jm_running():
             log("[📘 SYSTEM]", "检测到任务运行中，跳过重启检查")
             continue
 
-        if (main_mem+child_mem)> 600:
+        if (main_mem + child_mem) > 600:
             log("[⚠️ SYSTEM]", "检测到空闲状态且内存超限，准备自动重启")
-            os._exit(0)
+            sys.exit(0)
 
 
 # ====================== 主函数入口 ======================
 async def main():
-    log("[🚀 SYSTEM]","Napcat QQ机器人启动中...")
-    log("[📁 SYSTEM]",f"文件目录: {os.path.abspath(FILE_DIR)}")
-    log("[🌐 SYSTEM]",f"WebSocket服务器: {WEBSOCKET_URL}")
-    log("[🔗 SYSTEM]",f"HTTP监听端口: {HTTP_PORT}")
+    log("[🚀 SYSTEM]", "Napcat QQ机器人启动中...")
+    log("[📁 SYSTEM]", f"文件目录: {os.path.abspath(FILE_DIR)}")
+    log("[🌐 SYSTEM]", f"WebSocket服务器: {WEBSOCKET_URL}")
+    log("[🔗 SYSTEM]", f"HTTP监听端口: {HTTP_PORT}")
     asyncio.create_task(periodic_cleanup())
 
     config = uvicorn.Config(app, host="127.0.0.1", port=HTTP_PORT, loop="asyncio", access_log=False)
@@ -414,5 +477,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         log("[🛑 SYSTEM]", "用户手动终止程序")
-
-
