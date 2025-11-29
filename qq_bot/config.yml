@@ -1,8 +1,7 @@
-# 禁止下载的本子
 banned_id:
-  - 350234
-  - 350235
-
-# 禁止使用下载功能的用户
-banned_users:
-  -
+- 350234
+- 350235
+banned_user:
+  - ''
+banned_group:
+  - ''

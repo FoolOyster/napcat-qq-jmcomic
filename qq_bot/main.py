@@ -30,8 +30,9 @@ LOG_DIR = "./logs"
 with open("config.yml", "r", encoding="utf-8") as f:
     _config = yaml.safe_load(f)
 
-banned_id: list[int] = _config.get("banned_id", [])
-banned_user: list[int] = _config.get("banned_user", [])
+banned_id: list[str] = _config.get("banned_id", [])
+banned_user: list[str] = _config.get("banned_user", [])
+banned_group: list[str] = _config.get("banned_group", [])
 
 # ====================== 日志系统配置 ======================
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -76,6 +77,11 @@ def get_total_memory_mb():
         except psutil.NoSuchProcess:
             pass
     return main_mem / 1024 / 1024, child_mem / 1024 / 1024
+
+
+def update_config():
+    with open("config.yml", "w", encoding="utf-8") as f:
+        yaml.dump(_config, f, allow_unicode=True, sort_keys=False, indent=4)
 
 
 # ================ 信息发送类 ================
@@ -168,8 +174,8 @@ jm_functioning = True
 jm_is_running = False
 
 
-def get_jm_condition():
-    return jm_functioning
+def get_jm_condition(group_id: int):
+    return str(group_id) not in banned_group
 
 
 def set_jm_condition(condition):
@@ -332,6 +338,8 @@ async def send_message(message_type, group_id, user_id, message):
 
 # ====================== 本子请求者信息 ======================
 def requester_information(message_type, group_name, nickname, group_id, user_id, number, request_type):
+    number = str(number)
+    user_id = str(user_id)
     msg = ""
     if number in banned_id or user_id in banned_user:
         tag = "[🔴 Request]"
@@ -380,14 +388,20 @@ async def handle_message_event(data):
 
     # 管理命令
     if match_ON and user_id == admin_id:
-        set_jm_condition(True)
         log("[🟢 Admin]", "✅ 开启禁漫功能")
         await send_message(message_type, group_id, user_id, "✅ 禁漫功能已开启")
+        if group_id in banned_group:
+            banned_group.remove(group_id)
+            _config["banned_group"] = banned_group
+            update_config()
         return
     if match_OFF and user_id == admin_id:
-        set_jm_condition(False)
         log("[🟢 Admin]", "🚫 关闭禁漫功能")
         await send_message(message_type, group_id, user_id, "🚫 禁漫功能已关闭")
+        if group_id not in banned_group:
+            banned_group.append(group_id)
+            _config["banned_group"] = banned_group
+            update_config()
         return
     if match_MDE and user_id == admin_id:
         num = int(match_MDE.group(1))
@@ -410,7 +424,7 @@ async def handle_message_event(data):
         number = match_JM.group(1)
         requester_information(message_type, data.get('group_name'), data.get('sender').get('nickname'), group_id,
                               user_id, number, "下载")
-        if get_jm_condition():
+        if get_jm_condition(group_id):
             if number in banned_id:
                 log("[🚫 Request]", "本子{number}下载请求驳回-banned number")
                 await send_message(message_type, group_id, user_id, "❌ 禁止下载该本子")
@@ -428,7 +442,7 @@ async def handle_message_event(data):
         number = match_JML.group(1)
         requester_information(message_type, data.get('group_name'), data.get('sender').get('nickname'), group_id,
                               user_id, number, "检索")
-        if get_jm_condition():
+        if get_jm_condition(group_id):
             await send_message(message_type, group_id, user_id, f"🔍 正在检索本子 {number}")
             info = await look_jm_information(number)
             await send_message(message_type, group_id, user_id, info)
